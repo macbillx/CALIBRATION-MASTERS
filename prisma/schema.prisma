@@ -1,0 +1,130 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  ADMIN
+  TECHNICIAN
+  APPROVER
+}
+
+enum CertificateStatus {
+  DRAFT
+  APPROVED
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  role          UserRole  @default(TECHNICIAN)
+  accounts      Account[]
+  sessions      Session[]
+  createdCertificates Certificate[] @relation("CertificateCreator")
+  approvedCertificates Certificate[] @relation("CertificateApprover")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+}
+
+model Session {
+  sessionToken String   @id
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@id([identifier, token])
+}
+
+model Certificate {
+  id                   String            @id @default(cuid())
+  certificateNo        String?           @unique
+  documentNo           String?
+  projectTitle         String?
+  clientName           String?
+  clientAddress        String?
+  clientPhone          String?
+  clientEmail          String?
+  instrumentDesc       String?
+  manufacturer         String?
+  model                String?
+  serialNo             String?
+  location             String?
+  procedure            String?
+  tagNo                String?
+  condition            String?
+  calibrationDate      DateTime?         @db.Date
+  dueDate              DateTime?         @db.Date
+  nextCalibrationDate  DateTime?         @db.Date
+  calibratedBy         String?
+  certificateDate      DateTime?         @db.Date
+  approvedBy           String?
+  approvalSignature    String?
+  approvalDate         DateTime?         @db.Date
+  approverName         String?
+  approverTitle        String?
+  asReceived           String?           @db.Text
+  asLeft               String?           @db.Text
+  resultsSummary       String?           @db.Text
+  notes                String?           @db.Text
+  comments             String?           @db.Text
+  sourceRow            Int?
+  status               CertificateStatus @default(DRAFT)
+  creatorId            String?
+  approverId           String?
+  creator              User?             @relation("CertificateCreator", fields: [creatorId], references: [id], onDelete: SetNull)
+  approver             User?             @relation("CertificateApprover", fields: [approverId], references: [id], onDelete: SetNull)
+  readings             TestReading[]
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  @@index([clientName])
+  @@index([calibrationDate])
+  @@index([nextCalibrationDate])
+  @@index([status])
+}
+
+model TestReading {
+  id               String      @id @default(cuid())
+  certificateId    String
+  point            String?
+  appliedValue     String?
+  indicatedValue   String?
+  error            String?
+  tolerance        String?
+  sortOrder        Int         @default(0)
+  certificate      Certificate @relation(fields: [certificateId], references: [id], onDelete: Cascade)
+  createdAt        DateTime    @default(now())
+
+  @@index([certificateId, sortOrder])
+}
+
