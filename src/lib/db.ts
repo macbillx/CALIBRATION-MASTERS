@@ -2,17 +2,28 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
-const connectionString = process.env.DATABASE_URL ?? "postgresql://placeholder:placeholder@127.0.0.1:5432/placeholder";
+export const databaseUrl =
+  process.env.DATABASE_URL ??
+  process.env.CALI_DATABASE_URL_POOLED ??
+  process.env.CALI_DATABASE_URL ??
+  "postgresql://placeholder:placeholder@127.0.0.1:5432/placeholder";
 
 export const prisma = globalForPrisma.prisma ?? new PrismaClient({
-  adapter: new PrismaPg({ connectionString }),
+  adapter: new PrismaPg({ connectionString: databaseUrl }),
 });
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
-export function assertDatabaseConfigured() {
-  if (!process.env.DATABASE_URL) {
-    throw new Error("DATABASE_URL is not configured. Add the Postgres connection string to your environment.");
-  }
+export function isDatabaseConfigured() {
+  return Boolean(
+    process.env.DATABASE_URL ??
+    process.env.CALI_DATABASE_URL_POOLED ??
+    process.env.CALI_DATABASE_URL
+  );
 }
 
+export function assertDatabaseConfigured() {
+  if (!isDatabaseConfigured()) {
+    throw new Error("Database connection is not configured. Add a PostgreSQL connection to your environment.");
+  }
+}
