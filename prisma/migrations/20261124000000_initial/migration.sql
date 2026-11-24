@@ -1,7 +1,18 @@
-CREATE TYPE "UserRole" AS ENUM ('ADMIN', 'TECHNICIAN', 'APPROVER');
-CREATE TYPE "CertificateStatus" AS ENUM ('DRAFT', 'APPROVED');
+DO $migration$
+BEGIN
+  CREATE TYPE "UserRole" AS ENUM ('ADMIN', 'TECHNICIAN', 'APPROVER');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END
+$migration$;
 
-CREATE TABLE "User" (
+DO $migration$
+BEGIN
+  CREATE TYPE "CertificateStatus" AS ENUM ('DRAFT', 'APPROVED');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END
+$migration$;
+
+CREATE TABLE IF NOT EXISTS "User" (
   "id" TEXT NOT NULL,
   "name" TEXT,
   "email" TEXT,
@@ -12,9 +23,9 @@ CREATE TABLE "User" (
   "updatedAt" TIMESTAMP(3) NOT NULL,
   CONSTRAINT "User_pkey" PRIMARY KEY ("id")
 );
-CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
+CREATE UNIQUE INDEX IF NOT EXISTS "User_email_key" ON "User"("email");
 
-CREATE TABLE "Account" (
+CREATE TABLE IF NOT EXISTS "Account" (
   "userId" TEXT NOT NULL,
   "type" TEXT NOT NULL,
   "provider" TEXT NOT NULL,
@@ -30,7 +41,7 @@ CREATE TABLE "Account" (
   CONSTRAINT "Account_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
-CREATE TABLE "Session" (
+CREATE TABLE IF NOT EXISTS "Session" (
   "sessionToken" TEXT NOT NULL,
   "userId" TEXT NOT NULL,
   "expires" TIMESTAMP(3) NOT NULL,
@@ -38,15 +49,15 @@ CREATE TABLE "Session" (
   CONSTRAINT "Session_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
-CREATE TABLE "VerificationToken" (
+CREATE TABLE IF NOT EXISTS "VerificationToken" (
   "identifier" TEXT NOT NULL,
   "token" TEXT NOT NULL,
   "expires" TIMESTAMP(3) NOT NULL,
   CONSTRAINT "VerificationToken_pkey" PRIMARY KEY ("identifier", "token")
 );
-CREATE UNIQUE INDEX "VerificationToken_token_key" ON "VerificationToken"("token");
+CREATE UNIQUE INDEX IF NOT EXISTS "VerificationToken_token_key" ON "VerificationToken"("token");
 
-CREATE TABLE "Certificate" (
+CREATE TABLE IF NOT EXISTS "Certificate" (
   "id" TEXT NOT NULL,
   "certificateNo" TEXT,
   "documentNo" TEXT,
@@ -88,13 +99,13 @@ CREATE TABLE "Certificate" (
   CONSTRAINT "Certificate_creatorId_fkey" FOREIGN KEY ("creatorId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT "Certificate_approverId_fkey" FOREIGN KEY ("approverId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
-CREATE UNIQUE INDEX "Certificate_certificateNo_key" ON "Certificate"("certificateNo");
-CREATE INDEX "Certificate_clientName_idx" ON "Certificate"("clientName");
-CREATE INDEX "Certificate_calibrationDate_idx" ON "Certificate"("calibrationDate");
-CREATE INDEX "Certificate_nextCalibrationDate_idx" ON "Certificate"("nextCalibrationDate");
-CREATE INDEX "Certificate_status_idx" ON "Certificate"("status");
+CREATE UNIQUE INDEX IF NOT EXISTS "Certificate_certificateNo_key" ON "Certificate"("certificateNo");
+CREATE INDEX IF NOT EXISTS "Certificate_clientName_idx" ON "Certificate"("clientName");
+CREATE INDEX IF NOT EXISTS "Certificate_calibrationDate_idx" ON "Certificate"("calibrationDate");
+CREATE INDEX IF NOT EXISTS "Certificate_nextCalibrationDate_idx" ON "Certificate"("nextCalibrationDate");
+CREATE INDEX IF NOT EXISTS "Certificate_status_idx" ON "Certificate"("status");
 
-CREATE TABLE "TestReading" (
+CREATE TABLE IF NOT EXISTS "TestReading" (
   "id" TEXT NOT NULL,
   "certificateId" TEXT NOT NULL,
   "point" TEXT,
@@ -107,5 +118,4 @@ CREATE TABLE "TestReading" (
   CONSTRAINT "TestReading_pkey" PRIMARY KEY ("id"),
   CONSTRAINT "TestReading_certificateId_fkey" FOREIGN KEY ("certificateId") REFERENCES "Certificate"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
-CREATE INDEX "TestReading_certificateId_sortOrder_idx" ON "TestReading"("certificateId", "sortOrder");
-
+CREATE INDEX IF NOT EXISTS "TestReading_certificateId_sortOrder_idx" ON "TestReading"("certificateId", "sortOrder");
