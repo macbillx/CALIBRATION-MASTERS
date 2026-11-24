@@ -11,7 +11,7 @@ Full-stack certificate workspace built with Next.js, TypeScript, Auth.js, Postgr
 5. Import the workbook seed data with `npm run db:seed`.
 6. Start the app with `npm run dev` and open `http://localhost:3000`.
 
-The initial data import reads the existing `seed.js` and `quality-seed.js` files and upserts by certificate number. It imports the ten populated certificate records and source rows 19 and 20. The import is repeatable and does not overwrite unrelated records.
+The initial database seed reads the existing `seed.js` and `quality-seed.js` files and imports the ten populated records plus the two incomplete records from source rows 19 and 20. The migration also includes a workbook export for all 12 source records. After signing in, use **Import backup** and select `workbook-import.json` to merge the original workbook records into PostgreSQL by certificate number. That workbook export is kept out of Git because it contains client details; it is ignored by `.gitignore`.
 
 ## Authentication and roles
 

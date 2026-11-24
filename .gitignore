@@ -5,6 +5,7 @@ out/
 .env
 .env.*
 !.env.example
+workbook-import.json
 prisma/generated/
 src/generated/prisma/
 coverage/
