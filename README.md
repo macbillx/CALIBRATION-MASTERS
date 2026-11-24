@@ -1,33 +1,46 @@
-# Calibration Masters
+# Calibration Certificate Portal
 
-Full-stack certificate workspace built with Next.js, TypeScript, Auth.js, PostgreSQL, Prisma, and server-generated PDFs.
+A role-based portal for calibration certificate records, clients, approvals, and PDF certificates.
 
-## Run locally
+## Portal access
 
-1. Install Node.js 20.9 or newer.
-2. Copy `.env.example` to `.env` and set the database and GitHub OAuth values.
-3. Install packages with `npm install`.
-4. Apply the database schema with `npm run db:deploy` (or `npm run db:migrate` for local development).
-5. Import the workbook seed data with `npm run db:seed`.
-6. Start the app with `npm run dev` and open `http://localhost:3000`.
+- Sign in with a username and password.
+- Administrators create accounts and assign `admin`, `technician`, or `approver` roles.
+- Passwords are stored as bcrypt hashes. There are no public self-registration links.
+- Administrators can deactivate accounts or reset a password without removing its audit history. Account owners can change their password from **My account**.
+- The administrator access log records successful sign-ins, sign-outs, and rejected sign-in attempts, with the account name and UTC time.
+- Certificate and account actions are recorded in the audit log.
 
-The initial database seed reads the existing `seed.js` and `quality-seed.js` files and imports the ten populated records plus the two incomplete records from source rows 19 and 20. The migration also includes a workbook export for all 12 source records. After signing in, use **Import backup** and select `workbook-import.json` to merge the original workbook records into PostgreSQL by certificate number. That workbook export is kept out of Git because it contains client details; it is ignored by `.gitignore`.
+## Set up
 
-## Authentication and roles
+1. Copy `.env.example` to `.env` and enter a PostgreSQL connection string, a unique `NEXTAUTH_SECRET`, and the first administrator username and password. Passwords must be at least 12 characters and no more than 72 bytes.
+2. Install dependencies and create the database tables and initial administrator:
 
-Create a GitHub OAuth App. Set its callback URL to `http://localhost:3000/api/auth/callback/github` locally and your deployed host's `/api/auth/callback/github` in production. Set `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`, and a strong `AUTH_SECRET`.
+   ```bash
+   npm install
+   npm run db:setup
+   ```
 
-Restrict access with comma-separated email lists in `AUTH_ALLOWED_EMAILS`. Assign the first administrator with `AUTH_ADMIN_EMAIL` (or `AUTH_ADMIN_EMAILS`); set technician and approver email lists with `AUTH_TECHNICIAN_EMAILS` and `AUTH_APPROVER_EMAILS`. Admins can change member roles in Team Access.
+3. Start the portal:
 
-## Database
+   ```bash
+   npm run dev
+   ```
 
-Use a pooled PostgreSQL URL as `DATABASE_URL` and a direct PostgreSQL URL as `DIRECT_URL`. Prisma migrations are in `prisma/migrations`. Never commit `.env` or production credentials.
+Open `http://localhost:3000`. After the first administrator is set up, create other accounts from **User accounts**. Do not commit `.env` or share passwords in the project files.
 
-## Vercel deployment
+## Deployment
 
-Import `macbillx/CALIBRATION-MASTERS` into Vercel and configure the same environment variables for Production and Preview as needed. Set `DATABASE_URL` and `DIRECT_URL`, then run the seed import once against the intended production database. GitHub Pages can host only the old static preview; the authenticated workspace and API routes require the Next.js deployment.
+Configure `DATABASE_URL`, `NEXTAUTH_URL`, and `NEXTAUTH_SECRET` in the hosting environment. Set `BOOTSTRAP_ADMIN_USERNAME` and `BOOTSTRAP_ADMIN_PASSWORD` only when provisioning the first administrator, then remove the bootstrap password. Apply the Prisma schema before serving traffic:
 
-## Data migration and backups
+```bash
+npx prisma db push
+```
 
-The app supports importing an exported JSON backup into the shared database and exporting a JSON backup from the workspace. The original workbook remains the authoritative source until its records are checked in the new database.
+## Stack
 
+- Next.js App Router and TypeScript
+- PostgreSQL and Prisma
+- Auth.js / NextAuth Credentials provider with role-based access
+- bcrypt password hashing
+- `@react-pdf/renderer` certificate PDFs
