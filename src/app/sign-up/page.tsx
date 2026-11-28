@@ -8,5 +8,5 @@ export const dynamic = "force-dynamic";
 export default async function SignUpPage() {
   if (!isDatabaseConfigured()) redirect("/");
   if ((await auth())?.user) redirect("/");
-  return <main className="setup-wrap"><section className="setup-card sign-in-card"><p className="eyebrow">CALIBRATION MASTERS</p><h1>Create an account</h1><p className="subhead">Sign up with your email address and verify it to access the workspace.</p><SignUpForm /></section></main>;
+  return <main className="setup-wrap"><section className="setup-card sign-in-card"><p className="eyebrow">CALIBRATION MASTERS</p><h1>Create an account</h1><p className="subhead">Create a profile and sign in right away.</p><SignUpForm /></section></main>;
 }

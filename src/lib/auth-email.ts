@@ -45,14 +45,6 @@ export async function sendAuthEmail(to: string, subject: string, text: string, h
   await transport.sendMail({ from: config.from, to, subject, text, html });
 }
 
-export function verificationEmail(code: string) {
-  return {
-    subject: "Verify your Calibration Masters account",
-    text: `Your verification code is ${code}. It expires in 10 minutes.`,
-    html: `<p>Your verification code is <strong>${escapeHtml(code)}</strong>.</p><p>It expires in 10 minutes.</p>`,
-  };
-}
-
 export function passwordResetEmail(name: string | null, url: string) {
   const greeting = name ? `Hello ${name},` : "Hello,";
   const safeGreeting = escapeHtml(greeting);

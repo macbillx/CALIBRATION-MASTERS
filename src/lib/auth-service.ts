@@ -1,7 +1,7 @@
-import { randomBytes, randomInt } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
-import { assertMailConfigured, sendAuthEmail, verificationEmail, passwordResetEmail } from "@/lib/auth-email";
+import { assertMailConfigured, sendAuthEmail, passwordResetEmail } from "@/lib/auth-email";
 import { digestToken, normalizeEmail, validatePassword } from "@/lib/auth-security";
 
 const passwordRounds = 12;
@@ -27,8 +27,8 @@ export async function allowAuthAttempt(action: string, subject: string, limit: n
   return (result[0]?.attempts ?? limit + 1) <= limit;
 }
 
-function tokenIdentifier(purpose: "verify-email" | "password-reset", email: string) {
-  return `${purpose}:${email}`;
+function tokenIdentifier(email: string) {
+  return `password-reset:${email}`;
 }
 
 async function saveToken(identifier: string, rawToken: string, expires: Date) {
@@ -55,73 +55,11 @@ export async function createAccount(input: { name: unknown; email: unknown; pass
   }
 
   const passwordHash = await bcrypt.hash(input.password as string, passwordRounds);
-  const code = String(randomInt(100000, 1000000));
-  const user = await prisma.user.create({
+  await prisma.user.create({
     data: { name, email, passwordHash, role: "TECHNICIAN" },
     select: { id: true },
   });
-  try {
-    await saveToken(tokenIdentifier("verify-email", email), code, new Date(Date.now() + 10 * 60 * 1000));
-    const message = verificationEmail(code);
-    await sendAuthEmail(email, message.subject, message.text, message.html);
-  } catch (error) {
-    console.error("Verification email delivery failed", error);
-    await prisma.verificationToken.deleteMany({ where: { identifier: tokenIdentifier("verify-email", email) } });
-    await prisma.user.delete({ where: { id: user.id } });
-    return { error: "We could not send the verification email. Check the SMTP configuration and try again." };
-  }
   return { email };
-}
-
-export async function verifyEmail(input: { email: unknown; code: unknown }) {
-  const email = normalizeEmail(input.email);
-  const code = typeof input.code === "string" ? input.code.trim() : "";
-  if (!email || !/^\d{6}$/.test(code)) return false;
-  if (!(await allowAuthAttempt("verify-email", email, 8, 15 * 60 * 1000))) return false;
-
-  const now = new Date();
-  return prisma.$transaction(async (transaction) => {
-    const token = await transaction.verificationToken.deleteMany({
-      where: {
-        identifier: tokenIdentifier("verify-email", email),
-        token: digestToken(code),
-        expires: { gt: now },
-      },
-    });
-    if (token.count !== 1) return false;
-    const user = await transaction.user.updateMany({
-      where: { email, emailVerified: null },
-      data: { emailVerified: now },
-    });
-    return user.count === 1;
-  });
-}
-
-export async function resendVerificationCode(rawEmail: unknown) {
-  const email = normalizeEmail(rawEmail);
-  if (!email) return { error: "Enter a valid email address." };
-  if (!(await allowAuthAttempt("resend-verification", email, 3, 60 * 60 * 1000))) {
-    return { error: "Too many requests. Try again later." };
-  }
-  assertMailConfigured();
-  const user = await prisma.user.findUnique({
-    where: { email },
-    select: { id: true, emailVerified: true },
-  });
-  if (user && !user.emailVerified) {
-    const code = String(randomInt(100000, 1000000));
-    const identifier = tokenIdentifier("verify-email", email);
-    await saveToken(identifier, code, new Date(Date.now() + 10 * 60 * 1000));
-    const message = verificationEmail(code);
-    try {
-      await sendAuthEmail(email, message.subject, message.text, message.html);
-    } catch (error) {
-      console.error("Verification email delivery failed", error);
-      await prisma.verificationToken.deleteMany({ where: { identifier } });
-      return { error: "We could not send the verification email. Check the SMTP configuration and try again." };
-    }
-  }
-  return { message: "If the account is awaiting verification, a new code has been sent." };
 }
 
 export async function requestPasswordReset(rawEmail: unknown) {
@@ -144,11 +82,11 @@ export async function requestPasswordReset(rawEmail: unknown) {
   }
   const user = await prisma.user.findUnique({
     where: { email },
-    select: { id: true, name: true, emailVerified: true },
+    select: { id: true, name: true },
   });
-  if (user?.emailVerified) {
+  if (user) {
     const token = randomBytes(32).toString("base64url");
-    const identifier = tokenIdentifier("password-reset", email);
+    const identifier = tokenIdentifier(email);
     await saveToken(identifier, token, new Date(Date.now() + 30 * 60 * 1000));
     resetUrl.searchParams.set("token", token);
     const message = passwordResetEmail(user.name, resetUrl.toString());
@@ -187,7 +125,7 @@ export async function resetPassword(input: { token: unknown; password: unknown }
     if (consumed.count !== 1) return false;
     const email = resetToken.identifier.slice("password-reset:".length);
     const user = await transaction.user.updateMany({
-      where: { email, emailVerified: { not: null } },
+      where: { email },
       data: { passwordHash, authVersion: { increment: 1 } },
     });
     return user.count === 1;

@@ -3,7 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { allowAuthAttempt } from "@/lib/auth-service";
-import { normalizeEmail } from "@/lib/auth-security";
+import { hasPasswordCredentials, normalizeEmail } from "@/lib/auth-security";
 import type { UserRole } from "@/generated/prisma/client";
 
 const dummyPasswordHash = bcrypt.hash("unmatched-account-password", 12);
@@ -24,10 +24,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const user = await prisma.user.findUnique({
           where: { email },
-          select: { id: true, name: true, email: true, passwordHash: true, emailVerified: true, role: true, authVersion: true },
+          select: { id: true, name: true, email: true, passwordHash: true, role: true, authVersion: true },
         });
         const matches = await bcrypt.compare(password, user?.passwordHash ?? await dummyPasswordHash);
-        if (!user || !user.emailVerified || !user.passwordHash || !matches) return null;
+        if (!user || !hasPasswordCredentials(user) || !matches) return null;
         return {
           id: user.id,
           name: user.name,
@@ -51,9 +51,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       const current = await prisma.user.findUnique({
         where: { id: token.sub },
-        select: { id: true, name: true, email: true, emailVerified: true, role: true, authVersion: true },
+        select: { id: true, name: true, email: true, role: true, authVersion: true },
       });
-      if (!current?.emailVerified || current.authVersion !== token.authVersion) return null;
+      if (!current || current.authVersion !== token.authVersion) return null;
       token.name = current.name;
       token.email = current.email;
       token.role = current.role;

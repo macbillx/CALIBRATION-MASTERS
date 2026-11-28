@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { digestToken, normalizeEmail, validatePassword } from "./auth-security";
+import { digestToken, hasPasswordCredentials, normalizeEmail, validatePassword } from "./auth-security";
 
 test("normalizes valid email addresses and rejects invalid input", () => {
   assert.equal(normalizeEmail("  User@Example.com "), "user@example.com");
@@ -18,4 +18,11 @@ test("stores a one-way digest rather than a submitted token", () => {
   const digest = digestToken("one-time-secret");
   assert.notEqual(digest, "one-time-secret");
   assert.equal(digestToken("one-time-secret"), digest);
+});
+
+test("allows password sign-in without requiring email verification", () => {
+  const unverifiedAccount = { passwordHash: "bcrypt-hash", emailVerified: null };
+  const accountWithoutPassword = { passwordHash: null, emailVerified: null };
+  assert.equal(hasPasswordCredentials(unverifiedAccount), true);
+  assert.equal(hasPasswordCredentials(accountWithoutPassword), false);
 });

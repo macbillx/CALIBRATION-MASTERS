@@ -4,17 +4,17 @@ A role-based portal for calibration certificate records, clients, approvals, and
 
 ## Portal access
 
-- Sign up with an email address and password, then verify the address with a one-time email code.
-- Sign in with verified email and password credentials. GitHub and third-party OAuth are not used for workspace access.
+- Sign up with an email address and password, then sign in immediately. Email verification is not required.
+- Sign in with email and password credentials. GitHub and third-party OAuth are not used for workspace access.
 - New accounts receive the `technician` role. Administrators can assign `admin`, `technician`, or `approver` roles and are the only users allowed to delete accounts.
-- Passwords are stored as bcrypt hashes. Verification codes and reset tokens are stored as one-way hashes, expire, and are rate-limited.
+- Passwords are stored as bcrypt hashes. Password reset tokens are stored as one-way hashes, expire, and are rate-limited.
 - Users can request a password reset link by email. Password resets invalidate existing sessions.
 - The first administrator is provisioned during setup from the bootstrap email and password environment variables.
 
 ## Set up
 
 1. Copy `.env.example` to `.env` and configure PostgreSQL, a unique `NEXTAUTH_SECRET`, `BOOTSTRAP_ADMIN_EMAIL`, and a bootstrap password. Passwords must be at least 12 characters and no more than 72 UTF-8 bytes.
-2. Configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_FROM`. These SMTP settings are required to deliver account verification codes and password reset links.
+2. Configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_FROM` to deliver password reset links.
 3. Install dependencies and create the database tables and initial administrator:
 
    ```bash
@@ -32,7 +32,7 @@ Open `http://localhost:3000` and create an account. `db:setup` creates the boots
 
 ## Deployment
 
-Configure `DATABASE_URL`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, and the SMTP settings in the hosting environment. Set `BOOTSTRAP_ADMIN_EMAIL` and `BOOTSTRAP_ADMIN_PASSWORD` only when provisioning the first administrator, then remove the bootstrap credentials. Apply the Prisma schema before serving traffic:
+Configure `DATABASE_URL`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, and the SMTP settings for password recovery in the hosting environment. Set `BOOTSTRAP_ADMIN_EMAIL` and `BOOTSTRAP_ADMIN_PASSWORD` only when provisioning the first administrator, then remove the bootstrap credentials. Apply the Prisma schema before serving traffic:
 
 ```bash
 npx prisma db push

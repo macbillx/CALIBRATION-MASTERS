@@ -4,11 +4,9 @@ import Link from "next/link";
 import { useFormState, useFormStatus } from "react-dom";
 import {
   requestPasswordResetAction,
-  resendVerificationAction,
   resetPasswordAction,
   signInAction,
   signUpAction,
-  verifyEmailAction,
   type FormState,
 } from "@/app/auth-actions";
 
@@ -47,25 +45,6 @@ export function SignUpForm() {
       <label>Password<input name="password" type="password" autoComplete="new-password" minLength={12} required /><small>Use at least 12 characters (maximum 72 UTF-8 bytes).</small></label>
       <Feedback state={state} />
       <SubmitButton className="button button-primary" pendingText="Creating account…">Create account</SubmitButton>
-    </form>
-    <p className="auth-links"><Link href="/sign-in">Back to sign in</Link></p>
-  </>;
-}
-
-export function VerifyEmailForm({ email }: { email: string }) {
-  const [state, action] = useFormState(verifyEmailAction, initialState);
-  const [resendState, resendAction] = useFormState(resendVerificationAction, initialState);
-  return <>
-    <form className="auth-form" action={action}>
-      <label>Email<input name="email" type="email" autoComplete="email" defaultValue={email} required /></label>
-      <label>Six-digit code<input name="code" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required /></label>
-      <Feedback state={state} />
-      <SubmitButton className="button button-primary" pendingText="Verifying…">Verify email</SubmitButton>
-    </form>
-    <form className="auth-form" action={resendAction}>
-      <label>Email<input name="email" type="email" autoComplete="email" defaultValue={email} required /></label>
-      <Feedback state={resendState} />
-      <SubmitButton className="button button-secondary" pendingText="Sending…">Send a new code</SubmitButton>
     </form>
     <p className="auth-links"><Link href="/sign-in">Back to sign in</Link></p>
   </>;

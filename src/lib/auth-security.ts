@@ -13,6 +13,10 @@ export function validatePassword(value: unknown) {
   return null;
 }
 
+export function hasPasswordCredentials(user: { passwordHash: string | null } | null) {
+  return Boolean(user?.passwordHash);
+}
+
 export function digestToken(value: string) {
   return createHash("sha256").update(value).digest("hex");
 }

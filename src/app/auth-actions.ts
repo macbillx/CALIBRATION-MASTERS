@@ -6,9 +6,7 @@ import { signIn } from "@/auth";
 import {
   createAccount,
   requestPasswordReset,
-  resendVerificationCode,
   resetPassword,
-  verifyEmail,
 } from "@/lib/auth-service";
 
 export type FormState = { error?: string; message?: string };
@@ -22,7 +20,7 @@ export async function signInAction(_state: FormState, formData: FormData): Promi
     });
   } catch (error) {
     if (error instanceof AuthError) {
-      return { error: "Email or password is incorrect, or the email address has not been verified." };
+      return { error: "Email or password is incorrect." };
     }
     throw error;
   }
@@ -42,33 +40,7 @@ export async function signUpAction(_state: FormState, formData: FormData): Promi
     return { error: "Could not create the account. Please try again later." };
   }
   if ("error" in result) return { error: result.error };
-  redirect(`/verify-email?email=${encodeURIComponent(result.email)}`);
-}
-
-export async function verifyEmailAction(_state: FormState, formData: FormData): Promise<FormState> {
-  try {
-    const verified = await verifyEmail({
-      email: formData.get("email"),
-      code: formData.get("code"),
-    });
-    if (!verified) return { error: "That verification code is invalid or expired." };
-  } catch (error) {
-    console.error("Email verification failed", error);
-    return { error: "Could not verify the email address. Please try again." };
-  }
-  redirect("/sign-in?verified=1");
-}
-
-export async function resendVerificationAction(_state: FormState, formData: FormData): Promise<FormState> {
-  try {
-    return await resendVerificationCode(formData.get("email"));
-  } catch (error) {
-    console.error("Verification code resend failed", error);
-    if (error instanceof Error && (error.message.includes("SMTP configuration") || error.message.includes("NEXTAUTH_URL"))) {
-      return { error: error.message };
-    }
-    return { error: "Could not send a new verification code. Please try again later." };
-  }
+  redirect("/sign-in?accountCreated=1");
 }
 
 export async function requestPasswordResetAction(_state: FormState, formData: FormData): Promise<FormState> {
