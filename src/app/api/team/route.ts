@@ -11,7 +11,7 @@ export async function GET() {
   if (user.role !== "ADMIN") return NextResponse.json({ error: "Admin access required." }, { status: 403 });
   try {
     assertDatabaseConfigured();
-    const users = await prisma.user.findMany({ select: { id: true, name: true, email: true, role: true, createdAt: true }, orderBy: { createdAt: "asc" } });
+    const users = await prisma.user.findMany({ select: { id: true, name: true, email: true, role: true, createdAt: true }, orderBy: { createdAt: "desc" } });
     return NextResponse.json({ users });
   } catch (error) {
     console.error("Team list failed", error);

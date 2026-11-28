@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "postinstall": "prisma generate",
-    "test": "tsx --test src/lib/auth-security.test.ts",
+    "test": "tsx --test src/lib/auth-security.test.ts src/lib/team-access.test.ts",
     "prisma:generate": "prisma generate",
     "bootstrap-admin": "tsx prisma/bootstrap-admin.ts",
     "db:push": "prisma db push",

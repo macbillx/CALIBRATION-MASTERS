@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { currentUser } from "@/lib/authz";
 import { assertDatabaseConfigured, prisma } from "@/lib/db";
+import { wouldRemoveLastAdmin } from "@/lib/team-access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,9 +23,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       if (!current) return { error: "Team member not found.", status: 404 as const };
       if (current.role === "ADMIN" && input.data.role !== "ADMIN") {
         const adminCount = await transaction.user.count({ where: { role: "ADMIN" } });
-        if (adminCount <= 1) return { error: "The last admin cannot be demoted.", status: 409 as const };
+        if (wouldRemoveLastAdmin(current.role, input.data.role, adminCount)) {
+          return { error: "The last admin cannot be demoted.", status: 409 as const };
+        }
       }
-      const user = await transaction.user.update({ where: { id }, data: { role: input.data.role }, select: { id: true, name: true, email: true, role: true } });
+      const user = await transaction.user.update({ where: { id }, data: { role: input.data.role }, select: { id: true, name: true, email: true, role: true, createdAt: true } });
       return { user };
     }, { isolationLevel: "Serializable" });
     if ("error" in result) return NextResponse.json({ error: result.error }, { status: result.status });
