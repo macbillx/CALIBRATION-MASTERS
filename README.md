@@ -4,34 +4,35 @@ A role-based portal for calibration certificate records, clients, approvals, and
 
 ## Portal access
 
-- Sign in with a username and password.
-- Administrators create accounts and assign `admin`, `technician`, or `approver` roles.
-- Passwords are stored as bcrypt hashes. There are no public self-registration links.
-- Administrators can deactivate accounts or reset a password without removing its audit history. Account owners can change their password from **My account**.
-- The administrator access log records successful sign-ins, sign-outs, and rejected sign-in attempts, with the account name and UTC time.
-- Certificate and account actions are recorded in the audit log.
+- Sign up with an email address and password, then verify the address with a one-time email code.
+- Sign in with verified email and password credentials. GitHub and third-party OAuth are not used for workspace access.
+- New accounts receive the `technician` role. Administrators can assign `admin`, `technician`, or `approver` roles and are the only users allowed to delete accounts.
+- Passwords are stored as bcrypt hashes. Verification codes and reset tokens are stored as one-way hashes, expire, and are rate-limited.
+- Users can request a password reset link by email. Password resets invalidate existing sessions.
+- The first administrator is provisioned during setup from the bootstrap email and password environment variables.
 
 ## Set up
 
-1. Copy `.env.example` to `.env` and enter a PostgreSQL connection string, a unique `NEXTAUTH_SECRET`, and the first administrator username and password. Passwords must be at least 12 characters and no more than 72 bytes.
-2. Install dependencies and create the database tables and initial administrator:
+1. Copy `.env.example` to `.env` and configure PostgreSQL, a unique `NEXTAUTH_SECRET`, `BOOTSTRAP_ADMIN_EMAIL`, and a bootstrap password. Passwords must be at least 12 characters and no more than 72 UTF-8 bytes.
+2. Configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_FROM`. These SMTP settings are required to deliver account verification codes and password reset links.
+3. Install dependencies and create the database tables and initial administrator:
 
    ```bash
    npm install
    npm run db:setup
    ```
 
-3. Start the portal:
+4. Start the portal:
 
    ```bash
    npm run dev
    ```
 
-Open `http://localhost:3000`. After the first administrator is set up, create other accounts from **User accounts**. Do not commit `.env` or share passwords in the project files.
+Open `http://localhost:3000` and create an account. `db:setup` creates the bootstrap administrator only if the database has no administrator; remove the bootstrap password from the environment after provisioning. To provision an administrator without importing the sample certificate records, use `npm run bootstrap-admin` with the production database URL and bootstrap credentials supplied through a secure operator environment. Do not commit `.env` or share passwords in project files.
 
 ## Deployment
 
-Configure `DATABASE_URL`, `NEXTAUTH_URL`, and `NEXTAUTH_SECRET` in the hosting environment. Set `BOOTSTRAP_ADMIN_USERNAME` and `BOOTSTRAP_ADMIN_PASSWORD` only when provisioning the first administrator, then remove the bootstrap password. Apply the Prisma schema before serving traffic:
+Configure `DATABASE_URL`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, and the SMTP settings in the hosting environment. Set `BOOTSTRAP_ADMIN_EMAIL` and `BOOTSTRAP_ADMIN_PASSWORD` only when provisioning the first administrator, then remove the bootstrap credentials. Apply the Prisma schema before serving traffic:
 
 ```bash
 npx prisma db push
@@ -41,6 +42,6 @@ npx prisma db push
 
 - Next.js App Router and TypeScript
 - PostgreSQL and Prisma
-- Auth.js / NextAuth Credentials provider with role-based access
+- Auth.js v5 Credentials provider with PostgreSQL-backed profiles and role-based access
 - bcrypt password hashing
 - `@react-pdf/renderer` certificate PDFs

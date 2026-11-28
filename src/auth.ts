@@ -1,67 +1,70 @@
 import NextAuth from "next-auth";
-import GitHub from "next-auth/providers/github";
-import { PrismaAdapter } from "@auth/prisma-adapter";
+import Credentials from "next-auth/providers/credentials";
+import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
+import { allowAuthAttempt } from "@/lib/auth-service";
+import { normalizeEmail } from "@/lib/auth-security";
 import type { UserRole } from "@/generated/prisma/client";
 
-function valuesFrom(name: string) {
-  return (process.env[name] ?? "").split(",").map((value) => value.trim().toLowerCase()).filter(Boolean);
-}
-
-function githubIdFromProfile(profile: unknown) {
-  if (!profile || typeof profile !== "object" || !("id" in profile)) return null;
-  const id = profile.id;
-  return typeof id === "string" || typeof id === "number" ? String(id) : null;
-}
-
-function roleForEmail(email: string): UserRole {
-  const normalized = email.toLowerCase();
-  if (normalized === process.env.AUTH_ADMIN_EMAIL?.trim().toLowerCase() || valuesFrom("AUTH_ADMIN_EMAILS").includes(normalized)) return "ADMIN";
-  if (valuesFrom("AUTH_APPROVER_EMAILS").includes(normalized)) return "APPROVER";
-  return "TECHNICIAN";
-}
-
-const allowedEmails = () => new Set([
-  ...valuesFrom("AUTH_ALLOWED_EMAILS"),
-  ...valuesFrom("AUTH_ADMIN_EMAILS"),
-  ...valuesFrom("AUTH_APPROVER_EMAILS"),
-  ...valuesFrom("AUTH_TECHNICIAN_EMAILS"),
-  ...(process.env.AUTH_ADMIN_EMAIL ? [process.env.AUTH_ADMIN_EMAIL.trim().toLowerCase()] : []),
-]);
-
-async function isAdminGitHubAccount(userId: string) {
-  const adminIds = valuesFrom("AUTH_ADMIN_GITHUB_IDS");
-  if (adminIds.length === 0) return false;
-  const account = await prisma.account.findFirst({
-    where: { userId, provider: "github" },
-    select: { providerAccountId: true },
-  });
-  return Boolean(account && adminIds.includes(account.providerAccountId.toLowerCase()));
-}
+const dummyPasswordHash = bcrypt.hash("unmatched-account-password", 12);
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: PrismaAdapter(prisma),
-  providers: [GitHub],
-  session: { strategy: "database" },
+  providers: [
+    Credentials({
+      name: "Email and password",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        const email = normalizeEmail(credentials?.email);
+        const password = typeof credentials?.password === "string" ? credentials.password : "";
+        if (!email || !password || Buffer.byteLength(password, "utf8") > 72) return null;
+        if (!(await allowAuthAttempt("sign-in", email, 10, 15 * 60 * 1000))) return null;
+
+        const user = await prisma.user.findUnique({
+          where: { email },
+          select: { id: true, name: true, email: true, passwordHash: true, emailVerified: true, role: true, authVersion: true },
+        });
+        const matches = await bcrypt.compare(password, user?.passwordHash ?? await dummyPasswordHash);
+        if (!user || !user.emailVerified || !user.passwordHash || !matches) return null;
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          authVersion: user.authVersion,
+        };
+      },
+    }),
+  ],
+  session: { strategy: "jwt", maxAge: 8 * 60 * 60 },
   pages: { signIn: "/sign-in" },
   callbacks: {
-    async signIn({ user, profile }) {
-      if (user.email && allowedEmails().has(user.email.toLowerCase())) return true;
-      const githubId = githubIdFromProfile(profile);
-      return githubId !== null && valuesFrom("AUTH_ALLOWED_GITHUB_IDS").includes(githubId.toLowerCase());
+    async jwt({ token, user }) {
+      if (user) {
+        token.sub = user.id;
+        token.role = user.role;
+        token.authVersion = user.authVersion;
+      }
+      if (!token.sub) return token;
+
+      const current = await prisma.user.findUnique({
+        where: { id: token.sub },
+        select: { id: true, name: true, email: true, emailVerified: true, role: true, authVersion: true },
+      });
+      if (!current?.emailVerified || current.authVersion !== token.authVersion) return null;
+      token.name = current.name;
+      token.email = current.email;
+      token.role = current.role;
+      return token;
     },
-    async session({ session, user }) {
-      if (session.user) {
-        session.user.id = user.id;
-        const storedRole = (user as typeof user & { role: UserRole }).role;
-        session.user.role = await isAdminGitHubAccount(user.id) ? "ADMIN" : storedRole;
+    async session({ session, token }) {
+      if (session.user && token.sub && token.role) {
+        session.user.id = token.sub;
+        session.user.role = token.role as UserRole;
       }
       return session;
-    },
-  },
-  events: {
-    async createUser({ user }) {
-      if (user.email) await prisma.user.update({ where: { id: user.id }, data: { role: roleForEmail(user.email) } });
     },
   },
 });

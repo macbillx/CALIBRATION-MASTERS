@@ -2,9 +2,10 @@ import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { ensureBootstrapAdmin } from "./bootstrap";
 
-const connectionString=process.env.DATABASE_URL;
-if(!connectionString)throw new Error("Set DATABASE_URL before importing the existing certificate records.");
+const connectionString=process.env.DIRECT_URL??process.env.DATABASE_URL??process.env.CALI_DATABASE_URL??process.env.CALI_DATABASE_URL_POOLED;
+if(!connectionString)throw new Error("Set a PostgreSQL connection URL before importing the existing certificate records.");
 const prisma=new PrismaClient({adapter:new PrismaPg({connectionString})});
 
 function loadWindowData(path:string){
@@ -19,6 +20,7 @@ function date(value:unknown){
 function get(row:Record<string,unknown>,field:string,legacy:string){const value=row[field]??row[legacy];return typeof value==="string"?value.trim()||null:null;}
 
 async function main(){
+  await ensureBootstrapAdmin(prisma);
   const data=loadWindowData("seed.js");
   const reviews=loadWindowData("quality-seed.js");
   const rows=[...(data.CM_SEED as Record<string,unknown>[]||[]),...(reviews.CM_REVIEW_SEED as Record<string,unknown>[]||[])];
